@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ecommerce Recommendation System</title>
+  <title>SwiftBuy</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
@@ -12,53 +12,36 @@
   body {
     background-color: #f8f9fa;
   }
-
   .navbar {
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
   }
-
   .container {
     margin-top: 50px;
   }
-
   .video-background {
     width: 100%;
     height: 400px;
-    /* Set the height of the video here */
     object-fit: cover;
-    /* Ensure the video covers the entire container */
   }
-
   .nav-link:hover {
     color: orange !important;
-    /* Change text color on hover */
   }
-
   .nav-link.btn {
     border-radius: 5px;
-    /* Add rounded corners to buttons */
   }
-
   .modal-content {
     background-color: #fff;
-    /* Set modal content background color */
     color: #000;
-    /* Set modal content text color */
   }
-
   .modal-content.dark {
     background-color: #000;
-    /* Set modal content background color for dark theme */
     color: #fff;
-    /* Set modal content text color for dark theme */
   }
 </style>
 
 <body>
-
-  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand mx-auto" href="#">SwiftBuy</a>
+    <a class="navbar-brand mx-auto" href="/">SwiftBuy</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
       aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -79,7 +62,6 @@
         <li class="nav-item active">
           <a class="nav-link" href="#"><i class="fas fa-home"></i> Home</a>
         </li>
-
         <li class="nav-item">
           <a class="nav-link" href="#" id="settingsLink"><i class="fas fa-cog"></i> Settings</a>
         </li>
@@ -99,31 +81,23 @@
       </ul>
     </div>
   </nav>
-
-
-  <!-- Video -->
   <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
     <div class="carousel-inner">
-      <!-- First slide: Image -->
       <div class="carousel-item active">
         <img src="static/img/banner1.jpg" class="d-block w-100 video-background" alt="Banner 1">
       </div>
-      <!-- Second slide: Video -->
       <div class="carousel-item">
         <video class="video-background" autoplay loop muted>
           <source src="static/v.mp4" type="video/mp4">
           Your browser does not support the video tag.
         </video>
       </div>
-      <!-- Third slide: Image -->
       <div class="carousel-item">
         <img src="static/img/banner2.jpg" class="d-block w-100 video-background" alt="Banner 2">
       </div>
-      <!-- Fourth slide: Image -->
       <div class="carousel-item">
         <img src="static/img/banner3.jpg" class="d-block w-100 video-background" alt="Banner 3">
       </div>
-      <!-- Fifth slide: Video -->
       <div class="carousel-item">
         <video class="video-background" autoplay loop muted>
           <source src="static/v2.mp4" type="video/mp4">
@@ -140,18 +114,12 @@
       <span class="sr-only">Next</span>
     </a>
   </div>
-
-  <!-- Go To Main Page Button -->
   <div class="text-center mt-5">
-    <a href="main" class="btn btn-primary btn-lg">Go To Main Page</a>
+    <a href="main" class="btn btn-primary btn-lg">Product Recommendation</a>
   </div>
-
   {% if signup_message %}
   <h5 style="margin-left:42%;margin-top:10px; font-weight:bold;">{{signup_message}}</h5>
   {% endif %}
-
-  <!--trending recommendations-->
-  <!-- Products -->
   <div class="container mt-5">
     <h2 class="text-center mb-4" style="font-family: 'Poppins', 'Segoe UI', Arial, sans-serif; font-weight: 700; letter-spacing: 1px; color: #2d2d2d;">Trending Products</h2>
     <div class="row mt-4">
@@ -174,7 +142,6 @@
           </div>
         </div>
       </div>
-      <!-- Modal -->
       <div class="modal fade" id="productModal{{ index }}" tabindex="-1" role="dialog"
         aria-labelledby="productModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -219,10 +186,8 @@
         </div>
       </div>
       {% endfor %}
-      
     </div>
   </div>
-  <!-- Google Fonts for Poppins -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     .btn-gradient-primary:hover, .btn-gradient-primary:focus {
@@ -239,10 +204,6 @@
       box-shadow: 0 8px 32px rgba(255,152,0,0.18), 0 2px 8px rgba(44,62,80,0.08);
     }
   </style>
-
-
-
-  <!-- Bootstrap modal for sign up -->
   <div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -273,18 +234,15 @@
                 <button type="button" class="btn btn-outline-primary m-1 interest-btn" data-value="Appliances">Appliances</button>
                 <button type="button" class="btn btn-outline-primary m-1 interest-btn" data-value="Health">Health</button>
                 <button type="button" class="btn btn-outline-primary m-1 interest-btn" data-value="Personal">Personal</button>
-                <!-- Add more buttons as needed -->
               </div>
               <input type="hidden" name="category" id="selectedCategories" required>
             </div>
             <script>
-              // Multi-select button logic
               document.querySelectorAll('.interest-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                   btn.classList.toggle('active');
                   btn.classList.toggle('btn-primary');
                   btn.classList.toggle('btn-outline-primary');
-                  // Collect all selected values
                   var selected = [];
                   document.querySelectorAll('.interest-btn.active').forEach(function(activeBtn) {
                     selected.push(activeBtn.getAttribute('data-value'));
@@ -299,8 +257,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Bootstrap modal for sign in -->
   <div class="modal fade" id="signinModal" tabindex="-1" aria-labelledby="signinModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content p-0">
@@ -329,10 +285,6 @@
       </div>
     </div>
   </div>
-
-
-
-  <!-- Settings Modal -->
   <div class="modal fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel"
     aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -375,28 +327,18 @@
       </div>
     </div>
   </div>
-
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
   <script>
-
     function signOut() {
       window.location.href = '/signout';
     }
-
-    // Handle click on Settings link to open the modal
     document.getElementById('settingsLink').addEventListener('click', function () {
       $('#settingsModal').modal('show');
     });
-
-    // Handle theme apply button click
     document.getElementById('applyTheme').addEventListener('click', function () {
-      // Get the selected theme value
       var selectedTheme = document.querySelector('input[name="theme"]:checked').value;
-
-      // Apply the selected theme
       if (selectedTheme === 'black') {
         document.body.style.backgroundColor = 'black';
         document.body.style.color = 'white';
@@ -404,29 +346,18 @@
         document.body.style.backgroundColor = 'green';
         document.body.style.color = 'white';
       } else {
-        // Default theme
         document.body.style.backgroundColor = '#f8f9fa';
         document.body.style.color = 'black';
       }
-
-      // Close the modal
       $('#settingsModal').modal('hide');
     });
-
-    // Handle zoom in button click
     document.getElementById('zoomIn').addEventListener('click', function () {
       document.body.style.zoom = "115%";
     });
-
-    // Handle zoom out button click
     document.getElementById('zoomOut').addEventListener('click', function () {
       document.body.style.zoom = "100%";
     });
   </script>
-
-
-
-  <!--footer-->
   <footer class="footer bg-dark text-white">
     <div class="container" style="padding-top:20px;">
       <div class="row">
@@ -471,8 +402,5 @@
       </div>
     </div>
   </footer>
-
-
 </body>
-
 </html>

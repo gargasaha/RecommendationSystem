@@ -39,7 +39,7 @@ def content_based_recommendations(train_data, item_name, top_n=10):
     similar_items = sorted(similar_items, key=lambda x: x[1], reverse=True)
     top_similar_items = similar_items[1:top_n+1]
     recommended_item_indices = [x[0] for x in top_similar_items]
-    recommended_items_details = train_data.iloc[recommended_item_indices][['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+    recommended_items_details = train_data.iloc[recommended_item_indices][['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
     return recommended_items_details
 
 random_image_urls = [
@@ -123,16 +123,13 @@ def signup():
                 else:
                     mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
             category_products = train_data[mask]
-            recommended_items = category_products.head(20)[['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+            recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
             price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
             cursor.close()
             conn.close()
-            return render_template('main.html', content_based_rec=recommended_items,
-                                   random_product_image_urls=random_product_image_urls,
-                                   random_price=random.choice(price),
-                                   message=f"Welcome, {username}! Products from your selected category: {category}",
-                                   name=session['username'])
+
+            return redirect('/recommendations')
         except Error as e:
             return render_template('main.html', message=f"Database error: {e}")
     elif request.method == 'GET':
@@ -160,6 +157,12 @@ def signin():
             )
             user = cursor.fetchone()
             if user:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute('select count(*) from addToCart where id=%s', (user['id'],))
+                count = cursor.fetchall()
+                count = count[0][0] if count else 0
+            
                 selected_category = user['category']
                 session['id'] = user['id']
                 session['username'] = user['username']
@@ -178,28 +181,24 @@ def signin():
                         else:
                             mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
                     category_products = train_data[mask]
-                    recommended_items = category_products.head(20)[['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+                    recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
                     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
                     price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
                     cursor.close()
                     conn.close()
-                    return render_template('main.html', content_based_rec=recommended_items,
-                                           random_product_image_urls=random_product_image_urls,
-                                           random_price=random.choice(price),
-                                           message=f"Welcome, {user['username']}! Products from your selected category: {category}",
-                                           name=session['username'])
+
+
+                    
+
+                    return redirect('/recommendations')
                 else:
                     category_products = train_data[train_data['Category'].fillna('').str.lower() == str(selected_category).lower()]
-                    recommended_items = category_products.head(8)[['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+                    recommended_items = category_products.head(8)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
                     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
                     price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
                     cursor.close()
                     conn.close()
-                    return render_template('main.html', content_based_rec=recommended_items,
-                                           random_product_image_urls=random_product_image_urls,
-                                           random_price=random.choice(price),
-                                           message=f"Welcome, {user['username']}! Products from your selected category: {selected_category}",
-                                           name=session['username'])
+                    return redirect('/recommendations')
             else:
                 cursor.close()
                 conn.close()
@@ -214,6 +213,11 @@ def recommendations():
     if request.method == 'POST':
         prod = request.form.get('prod')
         nbr_raw = request.form.get('nbr')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
         try:
             nbr = int(nbr_raw)
             if nbr <= 0:
@@ -232,7 +236,7 @@ def recommendations():
                 else:
                     mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
             category_products = train_data[mask]
-            recommended_items = category_products.head(nbr)[['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+            recommended_items = category_products.head(nbr)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
             price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
             return render_template('main.html',
@@ -241,7 +245,9 @@ def recommendations():
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=random.choice(price),
                                    message=f"Cold start: Showing products in '{category}'",
-                                   name=session['username'] if 'username' in session else None)
+                                   name=session['username'] if 'username' in session else None,
+                                   cart_count=count,
+                                   f=1)
         content_based_rec = content_based_recommendations(train_data, prod, top_n=nbr)
         if content_based_rec.empty:
             return render_template('main.html', message="No recommendations available for this product.",
@@ -254,8 +260,14 @@ def recommendations():
                                    truncate=truncate,
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=random.choice(price),
-                                   name=session['username'] if 'username' in session else None)
+                                   name=session['username'] if 'username' in session else None,
+                                   cart_count=count)
     elif request.method == 'GET':
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
         category = session.get('category')
         if not category:
             category = train_data['Category'].mode()[0] if not train_data.empty else "Unknown"
@@ -267,17 +279,106 @@ def recommendations():
             else:
                 mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
         category_products = train_data[mask]
-        recommended_items = category_products.head(20)[['Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+        recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
         random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
         price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
+        print(count)
         return render_template('main.html',
                                content_based_rec=recommended_items,
                                truncate=truncate,
                                random_product_image_urls=random_product_image_urls,
                                random_price=random.choice(price),
                                message=f"Showing products in '{category}'",
-                               name=session['username'] if 'username' in session else None)
+                               name=session['username'] if 'username' in session else None,
+                               cart_count=count,
+                               f=1)
     return render_template('main.html')
+
+@app.route('/cart', methods=['GET'])
+def cart():
+    if 'id' not in session:
+        return redirect('/signin')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM addToCart WHERE id=%s", (session['id'],))
+        cart_items = cursor.fetchall()
+        if not cart_items:
+            cursor.close()
+            conn.close()
+            return render_template('cart.html', message="Your cart is empty.", name=session['username'])
+        cursor.execute("SELECT * FROM signup WHERE id=%s", (session['id'],))
+        user_info = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return render_template('cart.html', cart_items=cart_items, user_info=user_info,
+                       name=session['username'])
+    except Error as e:
+        return render_template('main.html', message=f"Database error: {e}")
+
+@app.route('/removeFromCart/<int:column_id>', methods=['POST'])
+def remove_from_cart(column_id):
+        print(f"Removing item with columnId: {column_id}")
+        if 'id' not in session:
+            return {"success": False, "error": "Not signed in"}, 401
+        try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM addToCart WHERE columnId=%s",
+                    (column_id,)
+                )
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return {"success": True}, 200
+        except Error as e:
+                return {"success": False, "error": str(e)}, 500
+
+@app.route("/addToCart", methods=['POST'])
+def add_to_cart():
+    if 'id' not in session:
+        return redirect('/signin')
+    product_id = request.form.get('product_id')
+
+    product_name = str(request.form.get('product_name'))
+    product_brand = str(request.form.get('product_brand'))
+    product_review_count = str(request.form.get('product_review_count'))
+    product_rating = str(request.form.get('product_rating'))
+    product_price = str(request.form.get('product_price'))
+    product_image = str(request.form.get('product_image'))
+    print(f"Adding product to cart: {product_id}, {product_name}, {product_brand}, {product_review_count}, {product_rating}, {product_price}, {product_image}")
+    if not product_id:
+        return render_template('main.html', message="Product ID is required.")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO addToCart (id, prodId, prodName, prodBrand, prodReviewCount, prodRatings, prodPrice, prodImage) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+            session['id'],
+            product_id,
+            product_name,
+            product_brand,
+            product_review_count,
+            product_rating,
+            product_price,
+            product_image
+            )
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
+        print(count)
+        return {"success": True, "cart_count":count }, 200
+    except Error as e:
+        return render_template('main.html', message=f"Database error: {e}")
+
 
 if __name__=='__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
