@@ -15,10 +15,10 @@ app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
 def get_db_connection():
     return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password='9932',
-        database='ProductRecommendationSystem'
+        host='sql211.infinityfree.com',
+        user='if0_39423079',
+        password='OimwpmbMXW62',
+        database='if0_39423079_recommendation'
     )
 
 def truncate(text, length):
