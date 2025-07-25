@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, session,redirect
 import pandas as pd
 import random
 import mysql.connector
+import pyodbc
 from mysql.connector import Error
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -14,13 +15,16 @@ train_data = pd.read_csv("models/clean_data.csv")
 app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
 def get_db_connection():
-    return mysql.connector.connect(
-        host='sql211.infinityfree.com',
-        user='if0_39423079',
-        password='OimwpmbMXW62',
-        database='if0_39423079_recommendation'
+    return pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=FinalyearProject.mssql.somee.com;'
+        'DATABASE=FinalyearProject;'
+        'UID=arko_SQLLogin_1;'
+        'PWD=6wpm9uy38j;'
+        'TrustServerCertificate=Yes;'
+        'Persist Security Info=False;'
+        'Packet Size=4096;'
     )
-
 def truncate(text, length):
     if len(text) > length:
         return text[:length] + "..."
