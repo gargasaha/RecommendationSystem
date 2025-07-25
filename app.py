@@ -14,6 +14,11 @@ train_data = pd.read_csv("models/clean_data.csv")
 
 app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
+<<<<<<< HEAD
+=======
+import pyodbc
+
+>>>>>>> 1161480 (updated database)
 def get_db_connection():
     return pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};'
