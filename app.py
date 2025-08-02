@@ -13,13 +13,6 @@ train_data = pd.read_csv("models/clean_data.csv")
 app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
 def get_db_connection():
-<<<<<<< HEAD
-    return mysql.connector.connect(
-        host='sql12.freesqldatabase.com',
-        user='sql12791990',
-        password='ykISheAYMK',
-        database='sql12791990'
-=======
     # Update with your SQL Server details
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -30,7 +23,6 @@ def get_db_connection():
         "TrustServerCertificate=Yes;"
         "Persist Security Info=False;"
         "Packet Size=4096;"
->>>>>>> 85eea22 (2aug)
     )
     return pyodbc.connect(conn_str)
 
