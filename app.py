@@ -1,7 +1,8 @@
-from flask import Flask, request, render_template, session, redirect
+from flask import Flask, request, render_template, session,redirect
 import pandas as pd
 import random
-import pytds
+import mysql.connector
+from mysql.connector import Error
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -13,16 +14,11 @@ train_data = pd.read_csv("models/clean_data.csv")
 app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
 def get_db_connection():
-    # Update with your SQL Server details
-    return pytds.connect(
-        server='GargaSaha.mssql.somee.com',
-        database='GargaSaha',
-        user='ChatApplication_SQLLogin_1',
-        password='udg4fy1ak5',
-        port=1433,
-        tds_version='7.4',
-        use_mars=True,
-        autocommit=True
+    return mysql.connector.connect(
+        host='localhost',
+        user='root',
+        password='9932',
+        database='ProductRecommendationSystem'
     )
 
 def truncate(text, length):
@@ -88,7 +84,7 @@ def signup():
         category = request.form['category']
         try:
             conn = get_db_connection()
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT * FROM signup WHERE username=%s", (username,))   
             existing_user = cursor.fetchone()
             if existing_user:
@@ -101,16 +97,19 @@ def signup():
                 cursor.close()
                 conn.close()
                 return render_template('main.html', message="Email already exists. Please use a different email address.")
+            cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO signup (username, email, password, category) VALUES (%s, %s, %s, %s)",
                 (username, email, password, category)
             )
+            conn.commit()
             cursor.execute("SELECT id FROM signup WHERE username=%s AND password=%s", (username, password))
             userId_row = cursor.fetchone()
             userId = userId_row[0] if userId_row else None
-            cursor.execute("INSERT INTO signin (id,username, password) VALUES (%s, %s, %s)",
+            cursor.execute("insert into signin (id,username, password) values (%s, %s, %s)",
                            (userId, username, password))
-            session['id'] = userId
+            conn.commit()
+            session['id'] = cursor.lastrowid
             session['username'] = username
             session['category'] = category
             category = session.get('category')
@@ -125,10 +124,13 @@ def signup():
                     mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
             category_products = train_data[mask]
             recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
+            random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
+            price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
             cursor.close()
             conn.close()
+
             return redirect('/recommendations')
-        except Exception as e:
+        except Error as e:
             return render_template('main.html', message=f"Database error: {e}")
     elif request.method == 'GET':
         return redirect('/recommendations')
@@ -148,20 +150,23 @@ def signin():
         password = request.form['signinPassword']
         try:
             conn = get_db_connection()
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
             cursor.execute(
                 "SELECT * FROM signup WHERE username=%s AND password=%s",
                 (username, password)
             )
             user = cursor.fetchone()
             if user:
-                cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (user[0],))
-                count = cursor.fetchone()
-                count = count[0] if count else 0
-                selected_category = user[4]  # Adjust index if needed
-                session['id'] = user[0]
-                session['username'] = user[1]
-                session['category'] = user[4]
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute('select count(*) from addToCart where id=%s', (user['id'],))
+                count = cursor.fetchall()
+                count = count[0][0] if count else 0
+            
+                selected_category = user['category']
+                session['id'] = user['id']
+                session['username'] = user['username']
+                session['category'] = user['category']
                 prod = request.form.get('prod')
                 nbr_raw = request.form.get('nbr')
                 if (not prod or prod.strip() == "") and (not nbr_raw or nbr_raw.strip() == ""):
@@ -181,6 +186,10 @@ def signin():
                     price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
                     cursor.close()
                     conn.close()
+
+
+                    
+
                     return redirect('/recommendations')
                 else:
                     category_products = train_data[train_data['Category'].fillna('').str.lower() == str(selected_category).lower()]
@@ -194,7 +203,7 @@ def signin():
                 cursor.close()
                 conn.close()
                 return render_template('main.html', message="Invalid credentials.")
-        except Exception as e:
+        except Error as e:
             return render_template('main.html', message=f"Database error: {e}")
 
     return render_template('main.html')
@@ -204,21 +213,21 @@ def recommendations():
     if request.method == 'POST':
         prod = request.form.get('prod')
         nbr_raw = request.form.get('nbr')
-        prod = request.form.get('prod')
-        nbr_raw = request.form.get('nbr')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
         try:
             nbr = int(nbr_raw)
             if nbr <= 0:
                 raise ValueError
         except (ValueError, TypeError):
             return render_template('main.html', message="Please enter a valid number of recommendations.")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
-        count = cursor.fetchone()
-        count = count[0] if count else 0
         if not prod or prod.strip() == "":
             category = session.get('category')
+            if not category:
+                category = train_data['Category'].mode()[0] if not train_data.empty else "Unknown"
             categories = [c.strip().lower() for c in str(category).split(',') if c.strip()]
             mask = False
             for cat in categories:
@@ -256,9 +265,9 @@ def recommendations():
     elif request.method == 'GET':
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
-        count = cursor.fetchone()
-        count = count[0] if count else 0
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
         category = session.get('category')
         if not category:
             category = train_data['Category'].mode()[0] if not train_data.empty else "Unknown"
@@ -273,6 +282,7 @@ def recommendations():
         recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
         random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
         price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
+        print(count)
         return render_template('main.html',
                                content_based_rec=recommended_items,
                                truncate=truncate,
@@ -290,7 +300,7 @@ def cart():
         return redirect('/signin')
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM addToCart WHERE id=%s", (session['id'],))
         cart_items = cursor.fetchall()
         if not cart_items:
@@ -303,37 +313,41 @@ def cart():
         conn.close()
         return render_template('cart.html', cart_items=cart_items, user_info=user_info,
                        name=session['username'])
-    except Exception as e:
+    except Error as e:
         return render_template('main.html', message=f"Database error: {e}")
 
 @app.route('/removeFromCart/<int:column_id>', methods=['POST'])
 def remove_from_cart(column_id):
-    if 'id' not in session:
-        return {"success": False, "error": "Not signed in"}, 401
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM addToCart WHERE columnId=%s",
-            (column_id,)
-        )
-        cursor.close()
-        conn.close()
-        return {"success": True}, 200
-    except Exception as e:
-        return {"success": False, "error": str(e)}, 500
+        print(f"Removing item with columnId: {column_id}")
+        if 'id' not in session:
+            return {"success": False, "error": "Not signed in"}, 401
+        try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM addToCart WHERE columnId=%s",
+                    (column_id,)
+                )
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return {"success": True}, 200
+        except Error as e:
+                return {"success": False, "error": str(e)}, 500
 
 @app.route("/addToCart", methods=['POST'])
 def add_to_cart():
     if 'id' not in session:
         return redirect('/signin')
     product_id = request.form.get('product_id')
+
     product_name = str(request.form.get('product_name'))
     product_brand = str(request.form.get('product_brand'))
     product_review_count = str(request.form.get('product_review_count'))
     product_rating = str(request.form.get('product_rating'))
     product_price = str(request.form.get('product_price'))
     product_image = str(request.form.get('product_image'))
+    print(f"Adding product to cart: {product_id}, {product_name}, {product_brand}, {product_review_count}, {product_rating}, {product_price}, {product_image}")
     if not product_id:
         return render_template('main.html', message="Product ID is required.")
     try:
@@ -352,14 +366,19 @@ def add_to_cart():
             product_image
             )
         )
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
-        count = cursor.fetchone()
-        count = count[0] if count else 0
+        conn.commit()
         cursor.close()
         conn.close()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('select count(*) from addToCart where id=%s', (session['id'],))
+        count = cursor.fetchall()
+        count = count[0][0] if count else 0
+        print(count)
         return {"success": True, "cart_count":count }, 200
-    except Exception as e:
+    except Error as e:
         return render_template('main.html', message=f"Database error: {e}")
+
 
 if __name__=='__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
