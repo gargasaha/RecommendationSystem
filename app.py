@@ -22,8 +22,7 @@ def get_db_connection():
         port=1433,
         tds_version='7.4',
         use_mars=True,
-        autocommit=True,
-        trust_server_certificate=True
+        autocommit=True
     )
 
 def truncate(text, length):
@@ -126,8 +125,6 @@ def signup():
                     mask = mask | (train_data['Category'].fillna('').str.lower() == cat)
             category_products = train_data[mask]
             recommended_items = category_products.head(20)[['ID','Name', 'ReviewCount', 'Brand', 'ImageURL', 'Rating']]
-            random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(recommended_items))]
-            price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
             cursor.close()
             conn.close()
             return redirect('/recommendations')
@@ -207,21 +204,21 @@ def recommendations():
     if request.method == 'POST':
         prod = request.form.get('prod')
         nbr_raw = request.form.get('nbr')
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
-        count = cursor.fetchone()
-        count = count[0] if count else 0
+        prod = request.form.get('prod')
+        nbr_raw = request.form.get('nbr')
         try:
             nbr = int(nbr_raw)
             if nbr <= 0:
                 raise ValueError
         except (ValueError, TypeError):
             return render_template('main.html', message="Please enter a valid number of recommendations.")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
+        count = cursor.fetchone()
+        count = count[0] if count else 0
         if not prod or prod.strip() == "":
             category = session.get('category')
-            if not category:
-                category = train_data['Category'].mode()[0] if not train_data.empty else "Unknown"
             categories = [c.strip().lower() for c in str(category).split(',') if c.strip()]
             mask = False
             for cat in categories:
