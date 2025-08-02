@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template, session, redirect
 import pandas as pd
 import random
-import pyodbc
+import pytds
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -14,17 +14,17 @@ app.secret_key = "alskdjfwoeieiurlskdjfslkdjf"
 
 def get_db_connection():
     # Update with your SQL Server details
-    conn_str = (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=GargaSaha.mssql.somee.com;"
-        "DATABASE=GargaSaha;"
-        "UID=ChatApplication_SQLLogin_1;"
-        "PWD=udg4fy1ak5;"
-        "TrustServerCertificate=Yes;"
-        "Persist Security Info=False;"
-        "Packet Size=4096;"
+    return pytds.connect(
+        server='GargaSaha.mssql.somee.com',
+        database='GargaSaha',
+        user='ChatApplication_SQLLogin_1',
+        password='udg4fy1ak5',
+        port=1433,
+        tds_version='7.4',
+        use_mars=True,
+        autocommit=True,
+        trust_server_certificate=True
     )
-    return pyodbc.connect(conn_str)
 
 def truncate(text, length):
     if len(text) > length:
@@ -90,29 +90,27 @@ def signup():
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM signup WHERE username=?", (username,))   
+            cursor.execute("SELECT * FROM signup WHERE username=%s", (username,))   
             existing_user = cursor.fetchone()
             if existing_user:
                 cursor.close()
                 conn.close()
                 return render_template('main.html', message="Username already exists. Please choose a different username.") 
-            cursor.execute("SELECT * FROM signup WHERE email=?", (email,))
+            cursor.execute("SELECT * FROM signup WHERE email=%s", (email,))
             existing_email = cursor.fetchone()
             if existing_email:
                 cursor.close()
                 conn.close()
                 return render_template('main.html', message="Email already exists. Please use a different email address.")
             cursor.execute(
-                "INSERT INTO signup (username, email, password, category) VALUES (?, ?, ?, ?)",
+                "INSERT INTO signup (username, email, password, category) VALUES (%s, %s, %s, %s)",
                 (username, email, password, category)
             )
-            conn.commit()
-            cursor.execute("SELECT id FROM signup WHERE username=? AND password=?", (username, password))
+            cursor.execute("SELECT id FROM signup WHERE username=%s AND password=%s", (username, password))
             userId_row = cursor.fetchone()
             userId = userId_row[0] if userId_row else None
-            cursor.execute("INSERT INTO signin (id,username, password) VALUES (?, ?, ?)",
+            cursor.execute("INSERT INTO signin (id,username, password) VALUES (%s, %s, %s)",
                            (userId, username, password))
-            conn.commit()
             session['id'] = userId
             session['username'] = username
             session['category'] = category
@@ -155,12 +153,12 @@ def signin():
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT * FROM signup WHERE username=? AND password=?",
+                "SELECT * FROM signup WHERE username=%s AND password=%s",
                 (username, password)
             )
             user = cursor.fetchone()
             if user:
-                cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=?', (user[0],))
+                cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (user[0],))
                 count = cursor.fetchone()
                 count = count[0] if count else 0
                 selected_category = user[4]  # Adjust index if needed
@@ -211,7 +209,7 @@ def recommendations():
         nbr_raw = request.form.get('nbr')
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=?', (session['id'],))
+        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
         count = cursor.fetchone()
         count = count[0] if count else 0
         try:
@@ -261,7 +259,7 @@ def recommendations():
     elif request.method == 'GET':
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=?', (session['id'],))
+        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
         count = cursor.fetchone()
         count = count[0] if count else 0
         category = session.get('category')
@@ -296,13 +294,13 @@ def cart():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM addToCart WHERE id=?", (session['id'],))
+        cursor.execute("SELECT * FROM addToCart WHERE id=%s", (session['id'],))
         cart_items = cursor.fetchall()
         if not cart_items:
             cursor.close()
             conn.close()
             return render_template('cart.html', message="Your cart is empty.", name=session['username'])
-        cursor.execute("SELECT * FROM signup WHERE id=?", (session['id'],))
+        cursor.execute("SELECT * FROM signup WHERE id=%s", (session['id'],))
         user_info = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -319,10 +317,9 @@ def remove_from_cart(column_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "DELETE FROM addToCart WHERE columnId=?",
+            "DELETE FROM addToCart WHERE columnId=%s",
             (column_id,)
         )
-        conn.commit()
         cursor.close()
         conn.close()
         return {"success": True}, 200
@@ -346,7 +343,7 @@ def add_to_cart():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO addToCart (id, prodId, prodName, prodBrand, prodReviewCount, prodRatings, prodPrice, prodImage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO addToCart (id, prodId, prodName, prodBrand, prodReviewCount, prodRatings, prodPrice, prodImage) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             (
             session['id'],
             product_id,
@@ -358,8 +355,7 @@ def add_to_cart():
             product_image
             )
         )
-        conn.commit()
-        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=?', (session['id'],))
+        cursor.execute('SELECT COUNT(*) FROM addToCart WHERE id=%s', (session['id'],))
         count = cursor.fetchone()
         count = count[0] if count else 0
         cursor.close()
